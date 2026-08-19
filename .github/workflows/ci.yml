@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  api-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run tests
+        run: PYTHONPATH=src pytest tests/ -v
+
+  web-checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install
+        run: npm install
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+
+  compose-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare pilot env
+        run: |
+          cp .env.example .env
+          {
+            echo "AUTH_REQUIRED=true"
+            echo "AUTH_SECRET=$(openssl rand -hex 32)"
+            echo "WORKER_SECRET=$(openssl rand -hex 32)"
+            echo "BOOTSTRAP_ADMIN_PASSWORD=demo-admin"
+            echo "PILOT_MODE=true"
+            echo "RATE_LIMIT_PER_MINUTE=30"
+            echo "CORS_ORIGINS=http://localhost:3000"
+            echo "NEXT_PUBLIC_API_URL=http://localhost:8000"
+            echo "WEB_PORT=3000"
+            echo "API_PORT_HOST=8000"
+          } >> .env
+      - name: Start stack
+        run: docker compose up --build -d
+      - name: Wait for API healthy
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8000/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose logs api --tail=80
+          exit 1
+      - name: Smoke
+        run: make smoke
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

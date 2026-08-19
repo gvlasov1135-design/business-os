@@ -4,7 +4,7 @@ from config.settings import Settings
 from infrastructure.minio import check_minio
 from infrastructure.postgres import check_postgres
 from infrastructure.redis import check_redis
-from modules.system.schemas import AggregateStatus, ComponentHealth, ReadinessResponse
+from modules.system.schemas import AggregateStatus, ComponentHealth, PilotFlags, ReadinessResponse
 
 
 async def get_readiness(settings: Settings) -> ReadinessResponse:
@@ -48,4 +48,12 @@ async def get_readiness(settings: Settings) -> ReadinessResponse:
         status=aggregate,
         components=components,
         checked_at=datetime.now(timezone.utc),
+        pilot=PilotFlags(
+            auth_required=settings.auth_required,
+            docs_enabled=settings.docs_enabled,
+            bootstrap_enabled=settings.bootstrap_enabled,
+            pilot_mode=settings.pilot_mode,
+            secrets_insecure=settings.secrets_are_insecure(),
+            rate_limit_per_minute=settings.rate_limit_per_minute,
+        ),
     )

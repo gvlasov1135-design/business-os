@@ -81,6 +81,18 @@ services:
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
       MINIO_BUCKET: ${MINIO_BUCKET:-business-os}
       MINIO_SECURE: "false"
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-minio}
+      LOCAL_STORAGE_PATH: ${LOCAL_STORAGE_PATH:-/.data/storage}
+      AUTH_REQUIRED: ${AUTH_REQUIRED:-false}
+      AUTH_SECRET: ${AUTH_SECRET:-business-os-dev-secret}
+      AUTH_TOKEN_TTL_SECONDS: ${AUTH_TOKEN_TTL_SECONDS:-43200}
+      WORKER_SECRET: ${WORKER_SECRET:-business-os-worker-secret}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-demo-admin}
+      BOOTSTRAP_ENABLED: ${BOOTSTRAP_ENABLED:-true}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3010,http://localhost:3000}
+      DOCS_ENABLED: ${DOCS_ENABLED:-true}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-0}
+      PILOT_MODE: ${PILOT_MODE:-false}
       API_HOST: 0.0.0.0
       API_PORT: 8000
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
@@ -94,6 +106,8 @@ services:
       minio:
         condition: service_healthy
       minio-init:
+        condition: service_completed_successfully
+      api-migrate:
         condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -116,11 +130,53 @@ services:
       api:
         condition: service_healthy
 
+  worker:
+    build:
+      context: ./apps/worker
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      API_BASE_URL: http://api:8000
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      WORKER_SECRET: ${WORKER_SECRET:-business-os-worker-secret}
+    depends_on:
+      api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   api-test:
     build:
       context: ./apps/api
       dockerfile: Dockerfile.test
     profiles: [test]
+
+  api-migrate:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-business_os}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-business_os_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-business_os}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_BUCKET: ${MINIO_BUCKET:-business-os}
+      MINIO_SECURE: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["alembic", "-c", "alembic.ini", "upgrade", "head"]
+    working_dir: /app
+    restart: "no"
 
   web-check:
     build:

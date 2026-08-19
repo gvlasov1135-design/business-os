@@ -13,10 +13,20 @@ class ComponentHealth(BaseModel):
     error: str | None = None
 
 
+class PilotFlags(BaseModel):
+    auth_required: bool
+    docs_enabled: bool
+    bootstrap_enabled: bool
+    pilot_mode: bool
+    secrets_insecure: bool
+    rate_limit_per_minute: int
+
+
 class ReadinessResponse(BaseModel):
     status: AggregateStatus
     components: dict[str, ComponentHealth]
     checked_at: datetime = Field(default_factory=datetime.utcnow)
+    pilot: PilotFlags | None = None
 
 
 class HealthResponse(BaseModel):

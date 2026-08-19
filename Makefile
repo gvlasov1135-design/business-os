@@ -1,10 +1,13 @@
-.PHONY: up down test lint typecheck check logs
+.PHONY: up down migrate test lint typecheck check logs smoke
 
 up:
 	docker compose up --build
 
 down:
 	docker compose down
+
+migrate:
+	docker compose run --rm api-migrate
 
 test:
 	docker compose --profile test build api-test
@@ -19,6 +22,9 @@ typecheck:
 	docker compose --profile test run --rm web-check sh -c "npm run typecheck"
 
 check: test lint typecheck
+
+smoke:
+	bash scripts/smoke.sh
 
 logs:
 	docker compose logs -f

@@ -52,7 +52,16 @@ export function SystemStatus({
           fontWeight: 600,
         }}
       >
-        System state: {uiState.toUpperCase()}
+        Состояние системы: {
+          uiState === "ready"
+            ? "ГОТОВО"
+            : uiState === "partial"
+              ? "ЧАСТИЧНО"
+              : uiState === "loading"
+                ? "ЗАГРУЗКА"
+                : "ОШИБКА"
+        }
+
       </div>
 
       {errorMessage && (
@@ -69,7 +78,7 @@ export function SystemStatus({
         <ComponentCard
           label="API"
           status={apiReachable ? "ok" : "down"}
-          error={apiReachable ? undefined : "API unreachable"}
+          error={apiReachable ? undefined : "API недоступен"}
         />
 
         {components &&
